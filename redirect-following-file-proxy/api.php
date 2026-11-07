@@ -46,6 +46,7 @@ if (empty($data['url'])) {
 const MAX_REDIRECTS = 5;
 const CONNECT_TIMEOUT = 5;
 const TOTAL_TIMEOUT = 15;
+const ALLOWED_PORTS = [80, 443];
 
 
 
@@ -62,13 +63,14 @@ const TOTAL_TIMEOUT = 15;
  * $allowedPorts:
  *
  *   [80, 443]        only allow ports 80 and 443
- *   [80, 443, 8080]  allow additional ports
- *   null             allow any port
+ *   [80, 443, 8080]  only allow ports 80, 443 and 8080
+ *   null             only allow default ports defined in ALLOWED_PORTS
  */
 function fetchUrlSafely(
 	string $url,
-	?array $allowedPorts = [80, 443]
+	?array $allowedPorts = null
 ): array {
+	$allowedPorts = $allowedPorts ?? ALLOWED_PORTS;
 	$currentUrl = $url;
 
 	for ($redirects = 0; $redirects <= MAX_REDIRECTS; $redirects++) {
