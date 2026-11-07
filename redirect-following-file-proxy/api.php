@@ -27,7 +27,23 @@ function sendJsonResponse($data, $status = 200)
 $method = $_SERVER['REQUEST_METHOD'];
 $data = $_GET;
 
+const ENABLE_CORS = true;
+
+if (ENABLE_CORS) {
+	header('Access-Control-Allow-Origin: *');
+	header('Access-Control-Allow-Methods: GET, OPTIONS');
+	header('Access-Control-Allow-Headers: Content-Type');
+	header('Access-Control-Max-Age: 86400');
+	header('Allow: GET, OPTIONS');
+}
+
+if (ENABLE_CORS && $method === 'OPTIONS') {
+	http_response_code(204);
+	exit;
+}
+
 if ($method !== 'GET') {
+	header('Allow: ' . (ENABLE_CORS ? 'GET, OPTIONS' : 'GET'));
 	http_response_code(405);
 	sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
 }
