@@ -774,45 +774,27 @@ function ipIsApproved(
 }
 
 
-/*
- * Example.
- */
 try {
 	$result = fetchUrlSafely(
 		$data['url']
 	);
 
-	echo 'Status: '
-		. $result['status']
-		. PHP_EOL;
+	$contentType = getLastHeader(
+		$result['headers'],
+		'content-type'
+	);
 
-	echo 'Final URL: '
-		. $result['final_url']
-		. PHP_EOL;
+	if ($contentType === null || $contentType === '') {
+		$contentType = 'application/octet-stream';
+	}
 
-	echo 'Connected IP: '
-		. $result['connected_ip']
-		. PHP_EOL;
-
-	echo 'Redirects: '
-		. $result['redirects']
-		. PHP_EOL;
-
-	echo PHP_EOL;
-
-	echo "========== HEADERS =========="
-		. PHP_EOL;
-
-	echo $result['raw_headers'];
-
-	echo PHP_EOL;
-
-	echo "=========== BODY ============"
-		. PHP_EOL;
-
+	header('Content-Type: ' . $contentType);
+	header('Content-Length: ' . strlen($result['body']));
 	echo $result['body'];
+	exit;
 } catch (Throwable $e) {
-	echo 'ERROR: '
-		. $e->getMessage()
-		. PHP_EOL;
+	sendJsonResponse([
+		'status' => 'failed',
+		'message' => $e->getMessage(),
+	], 500);
 }
