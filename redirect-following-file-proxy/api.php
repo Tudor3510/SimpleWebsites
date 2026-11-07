@@ -39,7 +39,7 @@ if (empty($data['url'])) {
 	], 400);
 }
 
-
+$LOCAL_IPV6_PREFIXES = getLocalIpv6Prefixes();
 
 
 
@@ -487,6 +487,89 @@ function validateDestination(
 
 
 /*
+ * Read the current machine's global IPv6 addresses and
+ * collapse them to /64 prefixes.
+ *
+ * This is intentionally done once at the start of a request,
+ * so redirect resolution can compare against the local IPv6
+ * network without repeated system calls.
+ */
+function getLocalIpv6Prefixes(): array {
+	$output = [];
+	$lines = [];
+
+	@exec(
+		'ip -6 -o addr show scope global 2>/dev/null',
+		$lines,
+		$status
+	);
+
+	if ($status !== 0 || $lines === []) {
+		return [];
+	}
+
+	foreach ($lines as $line) {
+		if (!preg_match('/\sinet6\s+([0-9A-Fa-f:]+)\/(\d+)/', $line, $matches)) {
+			continue;
+		}
+
+		$address = $matches[1];
+		$prefixLength = (int) $matches[2];
+
+		if ($prefixLength !== 64) {
+			continue;
+		}
+
+		$prefix = ipv6PrefixTo64($address);
+
+		if ($prefix !== '') {
+			$output[] = $prefix;
+		}
+	}
+
+	return array_values(array_unique($output));
+}
+
+function ipv6PrefixTo64(string $address): string {
+	$packed = @inet_pton($address);
+
+	if ($packed === false || strlen($packed) !== 16) {
+		return '';
+	}
+
+	$prefix = substr($packed, 0, 8) . str_repeat("\0", 8);
+
+	return inet_ntop($prefix);
+}
+
+function ipMatchesLocalIpv6Prefix(
+	string $ip,
+	array $localPrefixes
+): bool {
+	$packed = @inet_pton($ip);
+
+	if ($packed === false || strlen($packed) !== 16) {
+		return false;
+	}
+
+	$ipPrefix = substr($packed, 0, 8);
+
+	foreach ($localPrefixes as $prefix) {
+		$prefixPacked = @inet_pton($prefix);
+
+		if ($prefixPacked === false || strlen($prefixPacked) !== 16) {
+			continue;
+		}
+
+		if (substr($prefixPacked, 0, 8) === $ipPrefix) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/*
  * Resolve and validate a host.
  *
  * Handles:
@@ -558,7 +641,7 @@ function resolveAndValidateHost(
 
 	/*
      * Reject the entire hostname if ANY resolved
-     * address is private or reserved.
+     * address is private, reserved, or local to this machine.
      */
 	foreach ($ips as $ip) {
 		assertPublicIp($ip);
@@ -570,6 +653,8 @@ function resolveAndValidateHost(
 
 /*
  * Reject private/reserved IPv4 and IPv6 addresses.
+ * Also reject IPv6 addresses that share the machine's
+ * local /64 prefix, which could point to local devices.
  */
 function assertPublicIp(
 	string $ip
@@ -584,6 +669,19 @@ function assertPublicIp(
 	if ($result === false) {
 		throw new RuntimeException(
 			'Private or reserved IP rejected: '
+				. $ip
+		);
+	}
+
+	if (
+		strpos($ip, ':') !== false &&
+		ipMatchesLocalIpv6Prefix(
+			$ip,
+			$GLOBALS['LOCAL_IPV6_PREFIXES'] ?? []
+		)
+	) {
+		throw new RuntimeException(
+			'IPv6 address matches a local machine /64 prefix: '
 				. $ip
 		);
 	}
