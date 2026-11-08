@@ -23,6 +23,110 @@ function sendJsonResponse($data, $status = 200)
     exit;
 }
 
+function getLogDirectory(): string
+{
+	if (PHP_OS_FAMILY === 'Windows') {
+		$baseDirectory = getenv('USERPROFILE');
+
+		if ($baseDirectory === false || $baseDirectory === '') {
+			$baseDirectory = $_SERVER['USERPROFILE'] ?? '';
+		}
+	} else {
+		$baseDirectory = getenv('HOME');
+
+		if ($baseDirectory === false || $baseDirectory === '') {
+			$baseDirectory = $_SERVER['HOME'] ?? '';
+		}
+	}
+
+	if ($baseDirectory === '') {
+		$baseDirectory = sys_get_temp_dir();
+	}
+
+	return rtrim($baseDirectory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '.redirect-file-resolver';
+}
+
+function ensureLogFile(): string
+{
+	$directory = getLogDirectory();
+
+	if (!is_dir($directory) && !@mkdir($directory, 0777, true) && !is_dir($directory)) {
+		return '';
+	}
+
+	$path = $directory . DIRECTORY_SEPARATOR . 'logs.txt';
+
+	if (!file_exists($path)) {
+		@touch($path);
+	}
+
+	return $path;
+}
+
+function appendLog(string $message): void
+{
+	$path = ensureLogFile();
+
+	if ($path === '') {
+		return;
+	}
+
+	$file = fopen($path, 'ab');
+
+	if ($file === false) {
+		return;
+	}
+
+	fwrite($file, $message . PHP_EOL);
+	fclose($file);
+}
+
+function logRequestStart(): void
+{
+	appendLog('');
+	appendLog('');
+	appendLog('=== REQUEST ' . date('Y-m-d H:i:s') . ' ===');
+}
+
+function logIpv6Prefixes(array $prefixes): void
+{
+	logRequestStart();
+	$label = $prefixes === [] ? 'empty' : implode(', ', $prefixes);
+	appendLog('IPv6 prefixes: ' . $label);
+}
+
+function logResolvedUrl(string $initialUrl, string $connectedIp, ?string $nextUrl): void
+{
+	appendLog('');
+	appendLog('Resolved. URL: ' . $initialUrl);
+	appendLog('Ip address: ' . $connectedIp);
+	appendLog('Next URL: ' . ($nextUrl !== null && $nextUrl !== '' ? $nextUrl : 'file'));
+}
+
+function logUnapprovedIp(string $initialUrl, string $connectedIp): void
+{
+	appendLog('');
+	appendLog('curl did not connect to an approved ip address. URL: ' . $initialUrl);
+	appendLog('Ip address: ' . $connectedIp);
+}
+
+function logRuntimeException(string $url, Throwable $e): void
+{
+	appendLog('');
+	appendLog('RuntimeException: ' . $e->getMessage() . ' URL: ' . $url);
+}
+
+function logExceptionIfNeeded(string $url, Throwable $e): void
+{
+	$message = $e->getMessage();
+
+	if (str_contains($message, 'unexpected IP')) {
+		return;
+	}
+
+	logRuntimeException($url, $e);
+}
+
 
 $method = $_SERVER['REQUEST_METHOD'];
 $data = $_GET;
@@ -56,8 +160,7 @@ if (empty($data['url'])) {
 }
 
 $LOCAL_IPV6_PREFIXES = getLocalIpv6Prefixes();
-
-
+logIpv6Prefixes($LOCAL_IPV6_PREFIXES);
 
 const MAX_REDIRECTS = 5;
 const CONNECT_TIMEOUT = 5;
@@ -90,10 +193,15 @@ function fetchUrlSafely(
 	$currentUrl = $url;
 
 	for ($redirects = 0; $redirects <= MAX_REDIRECTS; $redirects++) {
-		$response = fetchOneHop(
-			$currentUrl,
-			$allowedPorts
-		);
+		try {
+			$response = fetchOneHop(
+				$currentUrl,
+				$allowedPorts
+			);
+		} catch (RuntimeException $e) {
+			logExceptionIfNeeded($currentUrl, $e);
+			throw $e;
+		}
 
 		$status = $response['status'];
 
@@ -103,6 +211,7 @@ function fetchUrlSafely(
 		if ($status < 300 || $status >= 400) {
 			$response['final_url'] = $currentUrl;
 			$response['redirects'] = $redirects;
+			logResolvedUrl($currentUrl, $response['connected_ip'], 'file');
 
 			return $response;
 		}
@@ -121,6 +230,7 @@ function fetchUrlSafely(
 		if ($location === null) {
 			$response['final_url'] = $currentUrl;
 			$response['redirects'] = $redirects;
+			logResolvedUrl($currentUrl, $response['connected_ip'], 'file');
 
 			return $response;
 		}
@@ -128,10 +238,12 @@ function fetchUrlSafely(
 		/*
          * Resolve relative Location against current URL.
          */
-		$currentUrl = resolveRedirectUrl(
+		$nextUrl = resolveRedirectUrl(
 			$currentUrl,
 			$location
 		);
+		logResolvedUrl($currentUrl, $response['connected_ip'], $nextUrl);
+		$currentUrl = $nextUrl;
 	}
 
 	throw new RuntimeException(
@@ -360,6 +472,7 @@ function fetchOneHop(
      * the IP addresses we approved.
      */
 	if (!ipIsApproved($connectedIp, $ips)) {
+		logUnapprovedIp($url, $connectedIp);
 		throw new RuntimeException(
 			'cURL connected to an unexpected IP: '
 				. $connectedIp
@@ -809,6 +922,7 @@ try {
 	echo $result['body'];
 	exit;
 } catch (Throwable $e) {
+	logExceptionIfNeeded($data['url'] ?? 'unknown', $e);
 	sendJsonResponse([
 		'status' => 'failed',
 		'message' => $e->getMessage(),
