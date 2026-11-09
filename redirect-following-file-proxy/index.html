@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF Redirect Resolver</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+    }
+
+    .box {
+      width: min(90vw, 600px);
+      text-align: center;
+    }
+
+    input[type="url"] {
+      width: 100%;
+      padding: 12px;
+      box-sizing: border-box;
+      margin-bottom: 12px;
+      font-size: 1rem;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+
+    .button-hidden {
+      visibility: hidden;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <main class="box">
+    <form id="resolver-form" action="#" method="get">
+      <label>
+        <input type="checkbox" id="show-button" checked>
+        Enable Open PDF button
+      </label>
+      <br>
+      <br>
+      <input
+        type="url"
+        id="url-input"
+        name="url"
+        placeholder="Paste PDF URL here"
+        required
+      >
+      <button type="submit" id="open-button">Open PDF</button>
+    </form>
+  </main>
+
+  <script>
+    const showButtonCheckbox = document.getElementById('show-button');
+    const urlInput = document.getElementById('url-input');
+    const openButton = document.getElementById('open-button');
+    const form = document.getElementById('resolver-form');
+
+    const PDFJS_VIEWER_BASE = '';
+    const API_URL_PREFIX = 'api.php?url=';
+    const OPEN_BUTTON_ENABLED_STORAGE_KEY = 'PdfUiRedirectPage.openPdfButtonEnabled.v1';
+
+    function loadOpenButtonPreference() {
+      try {
+        const storedValue = localStorage.getItem(OPEN_BUTTON_ENABLED_STORAGE_KEY);
+
+        if (storedValue === null) {
+          return;
+        }
+
+        showButtonCheckbox.checked = storedValue === 'true';
+      } catch (error) {
+        // Ignore storage errors and keep default checkbox state.
+      }
+    }
+
+    function saveOpenButtonPreference() {
+      try {
+        localStorage.setItem(OPEN_BUTTON_ENABLED_STORAGE_KEY, String(showButtonCheckbox.checked));
+      } catch (error) {
+        // Ignore storage errors.
+      }
+    }
+
+    function buildViewerUrl(rawUrl) {
+      const value = rawUrl.trim();
+      if (value === '') {
+        return '';
+      }
+
+      const apiUrl = API_URL_PREFIX + encodeURIComponent(value);
+      return PDFJS_VIEWER_BASE + encodeURIComponent(apiUrl);
+    }
+
+    function openInPdfViewer() {
+      const target = buildViewerUrl(urlInput.value);
+
+      if (target === '') {
+        return;
+      }
+
+      window.location.href = target;
+    }
+
+    function syncButtonVisibility() {
+      openButton.classList.toggle('button-hidden', !showButtonCheckbox.checked);
+    }
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      if (!showButtonCheckbox.checked) {
+        return;
+      }
+
+      openInPdfViewer();
+    });
+
+    urlInput.addEventListener('paste', function () {
+      if (showButtonCheckbox.checked) {
+        return;
+      }
+
+      setTimeout(openInPdfViewer, 0);
+    });
+
+    showButtonCheckbox.addEventListener('change', syncButtonVisibility);
+    showButtonCheckbox.addEventListener('change', saveOpenButtonPreference);
+
+    loadOpenButtonPreference();
+    syncButtonVisibility();
+  </script>
+</body>
+</html>
