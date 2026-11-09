@@ -247,7 +247,7 @@ function fetchUrlSafely(
 	}
 
 	throw new RuntimeException(
-		'Too many redirects'
+		'Too many redirects.'
 	);
 }
 
@@ -285,7 +285,7 @@ function fetchOneHop(
 
 	if ($curl === false) {
 		throw new RuntimeException(
-			'Could not initialize cURL'
+			'Could not initialize cURL.'
 		);
 	}
 
@@ -449,7 +449,7 @@ function fetchOneHop(
 	if ($body === false) {
 		$error = curl_error($curl);
 		throw new RuntimeException(
-			'cURL error: ' . $error
+			'cURL error: ' . $error . '.'
 		);
 	}
 
@@ -475,7 +475,7 @@ function fetchOneHop(
 		logUnapprovedIp($url, $connectedIp);
 		throw new RuntimeException(
 			'cURL connected to an unexpected IP: '
-				. $connectedIp
+				. $connectedIp . '.'
 		);
 	}
 
@@ -536,7 +536,7 @@ function validateDestination(
 		$scheme !== 'https'
 	) {
 		throw new RuntimeException(
-			'Only http and https URLs are allowed'
+			'Only http and https URLs are allowed.'
 		);
 	}
 
@@ -547,7 +547,7 @@ function validateDestination(
      */
 	if ($uri->getUserInfo() !== '') {
 		throw new RuntimeException(
-			'User/password information in URLs is not allowed'
+			'User/password information in URLs is not allowed.'
 		);
 	}
 
@@ -555,7 +555,7 @@ function validateDestination(
 
 	if ($host === '') {
 		throw new RuntimeException(
-			'URL has no hostname'
+			'URL has no hostname.'
 		);
 	}
 
@@ -595,7 +595,7 @@ function validateDestination(
 		)
 	) {
 		throw new RuntimeException(
-			'Port not allowed: ' . $port
+			'Port not allowed: ' . $port . '.'
 		);
 	}
 
@@ -738,7 +738,7 @@ function resolveAndValidateHost(
 	if ($records === false) {
 		throw new RuntimeException(
 			'DNS resolution failed for: '
-				. $host
+				. $host . '.'
 		);
 	}
 
@@ -764,7 +764,7 @@ function resolveAndValidateHost(
 	if (!$ips) {
 		throw new RuntimeException(
 			'Hostname has no A or AAAA records: '
-				. $host
+				. $host . '.'
 		);
 	}
 
@@ -798,7 +798,7 @@ function assertPublicIp(
 	if ($result === false) {
 		throw new RuntimeException(
 			'Private or reserved IP rejected: '
-				. $ip
+				. $ip . '.'
 		);
 	}
 
@@ -811,7 +811,7 @@ function assertPublicIp(
 	) {
 		throw new RuntimeException(
 			'IPv6 address matches a local machine /64 prefix: '
-				. $ip
+				. $ip . '.'
 		);
 	}
 }
@@ -840,7 +840,7 @@ function resolveRedirectUrl(
 
 	if ($location === '') {
 		throw new RuntimeException(
-			'Empty redirect Location'
+			'Empty redirect Location.'
 		);
 	}
 
