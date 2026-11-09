@@ -65,8 +65,8 @@
     const openButton = document.getElementById('open-button');
     const form = document.getElementById('resolver-form');
 
-    const PDFJS_VIEWER_BASE = '';
-    const API_URL_PREFIX = 'api.php?url=';
+    const PDFJS_VIEWER_BASE = '/web/viewer.html?file=';
+    const API_URL_PREFIX = '/api.php?url=';
     const OPEN_BUTTON_ENABLED_STORAGE_KEY = 'PdfUiRedirectPage.openPdfButtonEnabled.v1';
 
     function loadOpenButtonPreference() {
