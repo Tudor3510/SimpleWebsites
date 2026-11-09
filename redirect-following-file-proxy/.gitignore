@@ -1,3 +1,6 @@
 send_post.py
 composer.phar
 vendor/
+build/
+web/
+LICENSE
