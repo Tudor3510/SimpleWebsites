@@ -43,7 +43,7 @@ function getLogDirectory(): string
 		$baseDirectory = sys_get_temp_dir();
 	}
 
-	return rtrim($baseDirectory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '.redirect-file-resolver';
+	return rtrim($baseDirectory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '.redirect-following-file-proxy';
 }
 
 function ensureLogFile(): string
